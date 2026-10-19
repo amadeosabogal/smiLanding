@@ -4,7 +4,7 @@ const BeforeAfterSlider = ({ beforeImg, afterImg }: { beforeImg: string, afterIm
   const [sliderPos, setSliderPos] = useState(50);
 
   return (
-    <div className="before-after-slider" style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+    <div className="before-after-slider" style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', touchAction: 'pan-y' }}>
       <img src={afterImg} alt="Después" style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }} />
 
       <img
@@ -19,9 +19,10 @@ const BeforeAfterSlider = ({ beforeImg, afterImg }: { beforeImg: string, afterIm
       <input
         type="range" min="0" max="100" value={sliderPos}
         onChange={(e) => setSliderPos(Number(e.target.value))}
+        aria-label="Comparar antes y después"
         style={{
           position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          opacity: 0, cursor: 'ew-resize', zIndex: 10
+          opacity: 0, cursor: 'ew-resize', zIndex: 10, touchAction: 'pan-y'
         }}
       />
 
@@ -48,12 +49,15 @@ const BeforeAfterSlider = ({ beforeImg, afterImg }: { beforeImg: string, afterIm
 function App() {
   const [activeService, setActiveService] = useState<number>(0);
   const [legalModal, setLegalModal] = useState<'privacy' | 'terms' | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [activeNav, setActiveNav] = useState<string>('#inicio');
 
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash;
       if (hash === '#politica-privacidad') setLegalModal('privacy');
       else if (hash === '#terminos-condiciones') setLegalModal('terms');
+      else if (hash) setActiveNav(hash);
     };
     handleHash();
     window.addEventListener('hashchange', handleHash);
@@ -61,12 +65,50 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (legalModal) {
+    if (legalModal || mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
-  }, [legalModal]);
+  }, [legalModal, mobileMenuOpen]);
+
+  // Scroll spy to update active menu item on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      const sectionIds = ['inicio', 'filosofia', 'proyectos', 'servicios', 'proceso', 'contacto'];
+      const scrollPosition = window.scrollY + 220;
+
+      const sections = sectionIds
+        .map((id) => ({ id, el: document.getElementById(id) }))
+        .filter((item): item is { id: string; el: HTMLElement } => item.el !== null)
+        .sort((a, b) => a.el.offsetTop - b.el.offsetTop);
+
+      for (let i = sections.length - 1; i >= 0; i--) {
+        if (scrollPosition >= sections[i].el.offsetTop) {
+          setActiveNav(`#${sections[i].id}`);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleNavClick = (href: string) => {
+    setActiveNav(href);
+    setMobileMenuOpen(false);
+  };
+
+  const navItems = [
+    { href: '#inicio', label: 'INICIO' },
+    { href: '#proyectos', label: 'PROYECTOS' },
+    { href: '#filosofia', label: 'NOSOTROS' },
+    { href: '#servicios', label: 'ESPECIALIDADES' },
+    { href: '#proceso', label: 'PROCESO' },
+    { href: '#contacto', label: 'CONTACTO' },
+  ];
 
   const services = [
     {
@@ -94,46 +136,132 @@ function App() {
       num: '01',
       title: 'CONCEPTO',
       desc: 'Escuchamos y analizamos. Cada proyecto comienza con una conversación profunda sobre tus aspiraciones, el lugar y el contexto.',
-      img: '/concepto.jpg',
+      img: '/concepto.webp',
     },
     {
       num: '02',
       title: 'DISEÑO',
       desc: 'Traducimos tus ideas en planos, maquetas y renders fotorrealistas. Iteramos hasta alcanzar la perfección formal y funcional.',
-      img: '/diseno.jpg',
+      img: '/diseno.webp',
     },
     {
       num: '03',
       title: 'DOCUMENTACIÓN',
       desc: 'Elaboramos todos los planos técnicos, memorias y especificaciones necesarias para una ejecución impecable.',
-      img: '/documentacion.jpg',
+      img: '/documentacion.webp',
     },
     {
       num: '04',
       title: 'EJECUCIÓN',
       desc: 'Supervisamos cada detalle de la construcción. Tu visión se materializa con la misma precisión con la que fue concebida.',
-      img: '/ejecucion.jpg',
+      img: '/ejecucion.webp',
     },
   ];
 
   return (
     <>
       {/* Header */}
-      <header className="navbar">
+      <header className={`navbar ${mobileMenuOpen ? 'menu-active' : ''}`}>
         <div className="navbar-container">
-          <a href="#inicio" className="logo" aria-label="SMI Inicio">
+          <a href="#inicio" className="logo" aria-label="SMI Inicio" onClick={() => handleNavClick('#inicio')}>
             <img src="/logo azul transparente.webp" alt="SMI Construcción" className="logo-img" />
           </a>
+          
+          <button
+            type="button"
+            className={`navbar-hamburger ${mobileMenuOpen ? 'open' : ''}`}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'}
+            aria-expanded={mobileMenuOpen}
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+
           <nav className="nav-links">
-            <a href="#inicio" className="active">INICIO</a>
-            <a href="#proyectos">PROYECTOS</a>
-            <a href="#filosofia">NOSOTROS</a>
-            <a href="#servicios">ESPECIALIDADES</a>
-            <a href="#proceso">PROCESO</a>
-            <a href="#contacto">CONTACTO</a>
+            {navItems.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className={activeNav === item.href ? 'active' : ''}
+                onClick={() => handleNavClick(item.href)}
+              >
+                {item.label}
+              </a>
+            ))}
           </nav>
         </div>
       </header>
+
+      {/* Menú Móvil a Pantalla Completa (Full Screen) */}
+      <div className={`mobile-menu-overlay ${mobileMenuOpen ? 'active' : ''}`} aria-hidden={!mobileMenuOpen}>
+        <div className="mobile-menu-header">
+          <a href="#inicio" className="logo" aria-label="SMI Inicio" onClick={() => handleNavClick('#inicio')}>
+            <img src="/logo azul transparente.webp" alt="SMI Construcción" className="logo-img" />
+          </a>
+          <button
+            type="button"
+            className="mobile-menu-close"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Cerrar menú"
+          >
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div className="mobile-menu-body">
+          <nav className="mobile-menu-nav">
+            {navItems.map((item, index) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className={`mobile-nav-link ${activeNav === item.href ? 'active' : ''}`}
+                onClick={() => handleNavClick(item.href)}
+              >
+                <span className="mobile-nav-num">0{index + 1}</span>
+                <span className="mobile-nav-text">{item.label}</span>
+                <span className="mobile-nav-arrow">
+                  <i className="fa-solid fa-arrow-right-long"></i>
+                </span>
+              </a>
+            ))}
+          </nav>
+
+          <div className="mobile-menu-footer">
+            <div className="mobile-menu-contact">
+              <a href="tel:905446906" className="mobile-contact-link">
+                <i className="fa-solid fa-phone"></i>
+                <span>905 446 906</span>
+              </a>
+              <a href="mailto:cesia.vidal@smiperusac.com" className="mobile-contact-link">
+                <i className="fa-solid fa-envelope"></i>
+                <span>cesia.vidal@smiperusac.com</span>
+              </a>
+              <div className="mobile-contact-info">
+                <i className="fa-solid fa-location-dot"></i>
+                <span>San Isidro, Lima - Perú</span>
+              </div>
+            </div>
+
+            <div className="mobile-social-row">
+              <a href="https://www.instagram.com/smi.peru.sac" target="_blank" rel="noreferrer" className="mobile-social-btn" aria-label="Instagram">
+                <i className="fa-brands fa-instagram"></i>
+              </a>
+              <a href="https://www.facebook.com/share/1Djh4vZ6rj/" target="_blank" rel="noreferrer" className="mobile-social-btn" aria-label="Facebook">
+                <i className="fa-brands fa-facebook-f"></i>
+              </a>
+              <a href="https://www.tiktok.com/@smiperu.oficial?is_from_webapp=1&sender_device=pc" target="_blank" rel="noreferrer" className="mobile-social-btn" aria-label="TikTok">
+                <i className="fa-brands fa-tiktok"></i>
+              </a>
+            </div>
+
+            <div className="mobile-menu-legal">
+              20516004879 - SMI PERU S.A.C.
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ═══════ HERO ═══════ */}
       <section className="hero" id="inicio">
@@ -147,7 +275,7 @@ function App() {
             <span className="hero-title-phrase">CONSTRUCCIÓN QUE PERDURA.</span>
           </h1>
           <p className="hero-subtitle">Construcción y remodelación integral con acabados de alta calidad, entregados a tiempo y dentro de tu presupuesto.</p>
-          <a href="#proyectos" className="btn-outline">
+          <a href="#proyectos" className="btn-outline" onClick={() => handleNavClick('#proyectos')}>
             EXPLORAR PROYECTOS <i className="fa-solid fa-arrow-right-long"></i>
           </a>
         </div>
@@ -409,11 +537,11 @@ function App() {
           <div className="footer-col">
             <h5 className="footer-col-title">NAVEGACIÓN</h5>
             <ul className="footer-links-list">
-              <li><a href="#inicio">Inicio</a></li>
-              <li><a href="#proyectos">Proyectos</a></li>
-              <li><a href="#filosofia">Nosotros</a></li>
-              <li><a href="#servicios">Servicios</a></li>
-              <li><a href="#proceso">Proceso</a></li>
+              <li><a href="#inicio" onClick={() => handleNavClick('#inicio')}>Inicio</a></li>
+              <li><a href="#proyectos" onClick={() => handleNavClick('#proyectos')}>Proyectos</a></li>
+              <li><a href="#filosofia" onClick={() => handleNavClick('#filosofia')}>Nosotros</a></li>
+              <li><a href="#servicios" onClick={() => handleNavClick('#servicios')}>Especialidades</a></li>
+              <li><a href="#proceso" onClick={() => handleNavClick('#proceso')}>Proceso</a></li>
             </ul>
           </div>
 
@@ -421,9 +549,9 @@ function App() {
           <div className="footer-col">
             <h5 className="footer-col-title">SERVICIOS</h5>
             <ul className="footer-links-list">
-              <li><a href="#servicios" onClick={() => setActiveService(0)}>Diseño Residencial</a></li>
-              <li><a href="#servicios" onClick={() => setActiveService(1)}>Interiorismo</a></li>
-              <li><a href="#servicios" onClick={() => setActiveService(2)}>Gestión de Obra</a></li>
+              <li><a href="#servicios" onClick={() => { setActiveService(0); handleNavClick('#servicios'); }}>Diseño Residencial</a></li>
+              <li><a href="#servicios" onClick={() => { setActiveService(1); handleNavClick('#servicios'); }}>Interiorismo</a></li>
+              <li><a href="#servicios" onClick={() => { setActiveService(2); handleNavClick('#servicios'); }}>Gestión de Obra</a></li>
             </ul>
           </div>
 
